@@ -2,7 +2,6 @@ import json
 from dotenv import load_dotenv
 import requests
 from langsmith import wrappers
-from langchain_community.tools import DuckDuckGoSearchRun # type: ignore
 from langchain_core.tools import tool
 from langchain.agents import create_agent
 import os
