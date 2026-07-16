@@ -1,8 +1,9 @@
 import uuid
 
 import streamlit as st
-from chatbot import workflow
+from chatbot import workflow,fetch_threads
 from langchain_core.messages import HumanMessage, BaseMessage
+
 
 
 # Session state
@@ -11,7 +12,7 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 if "thread_ids" not in st.session_state:
-    st.session_state["thread_ids"] = []
+    st.session_state["thread_ids"] = fetch_threads()
 
 if "thread_id" not in st.session_state:
     st.session_state["thread_id"] = str(uuid.uuid4())
