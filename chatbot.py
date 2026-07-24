@@ -8,6 +8,8 @@ from langgraph.graph.message import BaseMessage, add_messages
 from typing import TypedDict, Annotated
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.messages import HumanMessage, BaseMessage
+from langgraph.prebuilt import tool_condition,ToolNode
+
 import sqlite3
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
@@ -27,6 +29,19 @@ class BotState(TypedDict):
 
 graph=StateGraph(BotState)
 
+@tool
+def calculator(  a:float,b:float,operator:  str ):
+    """this tool takes 2 no and perfrom calculation based on given operator"""
+    if(operator=="+"):
+        return a+b
+    elif(operator=="-"):
+        return a-b
+    elif(operator=="*"):
+        return a*b
+    elif(operator=="/" ):
+        
+ 
+
 def chat_node(State:BotState):
     messages=State["messages"]
     response=llm.invoke(messages)
@@ -36,7 +51,7 @@ def chat_node(State:BotState):
 graph.add_node("chat_node",chat_node)
 
 graph.add_edge(START, "chat_node")
-graph.add_edge("chat_node", END)
+graph.add_conditional_edge("chat_node",tool_condition )
 
 checkpointer=SqliteSaver(conn=conn)
 
