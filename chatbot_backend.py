@@ -107,18 +107,12 @@ def submit_async_task(coro):
     return _submit_async(coro)
 
 
-# -------------------
-# 1. LLM
-# -------------------
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=API_KEY,
     temperature=0.2,
 )
-
-# -------------------
-# 2. Tools
-# -------------------
+# Tools
 search_tool = DuckDuckGoSearchRun(region="us-en")
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
