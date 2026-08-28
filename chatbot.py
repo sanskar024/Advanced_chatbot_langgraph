@@ -22,8 +22,6 @@ llm = ChatGoogleGenerativeAI(
 
 conn=sqlite3.connect("chat.db",check_same_thread=False)
 
-
-
 class BotState(TypedDict):
     messages:Annotated[list[BaseMessage],add_messages]
 
