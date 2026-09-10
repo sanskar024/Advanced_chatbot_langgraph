@@ -138,17 +138,7 @@ question/ground-truth pairs for your own document before trusting the
 numbers, and consider wiring this into CI (fail the build on a score
 regression against a fixed golden dataset) for a real evaluation gate.
 
-## Notable fixes vs. the original version
 
-- `DuckDuckGoSearchRun(region="us-en")` was invalid (`region` belongs on
-  `DuckDuckGoSearchAPIWrapper`, not the tool itself) — fixed by constructing
-  the wrapper explicitly.
-- The original checkpointer (`AsyncSqliteSaver`) only supports async graph
-  execution, but the frontend calls the graph synchronously
-  (`chatbot.stream(...)`), which raises at runtime. Switched to a synchronous
-  `PostgresSaver`, which also satisfies the PostgreSQL-backed-memory
-  requirement.
-- Retrieval was pure FAISS similarity search; now a BM25 + FAISS
   `EnsembleRetriever` feeds a `CrossEncoderReranker` for higher-precision
   context.
 - The project was two flat scripts; it's now a proper `app/` package with
