@@ -1,15 +1,16 @@
 """
 Standalone DeepEval evaluation for the hybrid BM25 + FAISS + cross-encoder-rerank
-RAG pipeline defined in chatbot_backend.py.
+RAG pipeline defined in app/retrieval.py and app/tools/rag.py.
 
 This indexes a PDF through the same `ingest_pdf` / `rag_tool` path the chatbot
 uses at runtime, generates answers with the same LLM, and scores the results
 with DeepEval's RAG metrics (faithfulness, answer relevancy, contextual
-precision, contextual recall). It is a developer/CI utility, not something the
-app runs per-request.
+precision, contextual recall). It is a developer/CI utility, not something
+the app runs per-request -- see the README for wiring this into CI as a
+regression gate.
 
-The LLM-as-judge metrics are pointed at the app's own Gemini model (wrapped in
-GeminiDeepEvalModel below) so this doesn't require a separate OpenAI key.
+The LLM-as-judge metrics are pointed at the app's own Gemini model (wrapped
+in GeminiDeepEvalModel below) so this doesn't require a separate OpenAI key.
 
 Usage:
     python evaluate_rag.py path/to/sample.pdf
@@ -20,15 +21,17 @@ import sys
 
 from deepeval import evaluate
 from deepeval.metrics import (
-    FaithfulnessMetric,
     AnswerRelevancyMetric,
     ContextualPrecisionMetric,
     ContextualRecallMetric,
+    FaithfulnessMetric,
 )
-from deepeval.test_case import LLMTestCase
 from deepeval.models import DeepEvalBaseLLM
+from deepeval.test_case import LLMTestCase
 
-from chatbot_backend import ingest_pdf, rag_tool, llm
+from app.llm import llm
+from app.retrieval import ingest_pdf
+from app.tools.rag import rag_tool
 
 # Replace these with real question / ground-truth pairs for your document
 # before drawing any conclusions from the scores.

@@ -4,12 +4,9 @@ import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.types import Command
 
-from chatbot_backend import (
-    chatbot,
-    ingest_pdf,
-    retrieve_all_threads,
-    thread_document_metadata,
-)
+from app.checkpointer import retrieve_all_threads
+from app.graph import chatbot
+from app.retrieval import ingest_pdf, thread_document_metadata
 
 
 # =========================== Utilities ===========================
@@ -132,7 +129,9 @@ if uploaded_pdf:
     if uploaded_pdf.name in thread_docs:
         st.sidebar.info(f"`{uploaded_pdf.name}` already processed for this chat.")
     else:
-        with st.sidebar.status("Indexing PDF (BM25 + FAISS + reranker)…", expanded=True) as status_box:
+        with st.sidebar.status(
+            "Indexing PDF (BM25 + FAISS + reranker)…", expanded=True
+        ) as status_box:
             summary = ingest_pdf(
                 uploaded_pdf.getvalue(),
                 thread_id=thread_key,
@@ -167,8 +166,15 @@ if user_input:
     with st.chat_message("user"):
         st.text(user_input)
 
+    # correction_attempts is reset to 0 here (per new user turn) rather than
+    # inside the graph, so the self-correction budget doesn't accumulate
+    # across separate turns in the same thread.
     ai_message = run_graph_turn(
-        {"messages": [HumanMessage(content=user_input)]}, CONFIG
+        {
+            "messages": [HumanMessage(content=user_input)],
+            "correction_attempts": 0,
+        },
+        CONFIG,
     )
 
     pending = get_pending_interrupts(CONFIG)
@@ -205,6 +211,8 @@ if pending_interrupt and pending_interrupt.get("thread") == thread_key:
 
     if approve_clicked or deny_clicked:
         resume_value = {"approved": approve_clicked}
+        # Command(resume=...) continues the paused turn -- correction_attempts
+        # is intentionally NOT reset here, since this is still the same turn.
         ai_message = run_graph_turn(Command(resume=resume_value), CONFIG)
 
         st.session_state["message_history"].append(

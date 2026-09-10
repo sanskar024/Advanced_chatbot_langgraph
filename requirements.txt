@@ -1,0 +1,42 @@
+streamlit>=1.39.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+numpy>=1.26.4
+
+# LangChain / LangGraph core
+langchain>=0.3.7
+langchain-core>=0.3.15
+langchain-community>=0.3.7
+langchain-text-splitters>=0.3.2
+langgraph>=0.2.60
+langgraph-checkpoint-postgres>=2.0.9
+
+# Model providers
+langchain-google-genai>=2.0.5
+langchain-huggingface>=0.1.2
+
+# Observability
+langsmith>=0.1.130
+
+# MCP
+langchain-mcp-adapters>=0.0.5
+
+# Hybrid retrieval (BM25 + FAISS + cross-encoder rerank)
+faiss-cpu>=1.8.0
+rank-bm25>=0.2.2
+sentence-transformers>=3.2.1
+
+# Document loading
+pypdf>=5.0.0
+
+# Web search tool
+duckduckgo-search>=6.3.5
+
+# RAG evaluation
+deepeval>=2.1.0
+
+# PostgreSQL driver for LangGraph checkpointing
+psycopg[binary,pool]>=3.2.3
+
+# Semantic cache + rate limiting
+redis>=5.0.0
