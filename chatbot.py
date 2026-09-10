@@ -37,6 +37,7 @@ def calculator(  a:float,b:float,operator:  str ):
     elif(operator=="*"):
         return a*b
     elif(operator=="/" ):
+        return a/b
         
  
 
