@@ -846,7 +846,7 @@ VIEWS = {
     NAV[2]: view_eval
 }
 if SHOW_EXTRA_VIEWS:
-    VIEWS.update({NAV[1]: view_observability, NAV[2]: view_eval, NAV[3]: view_lab})
+    VIEWS.update({NAV[1]: view_observability, NAV[3]: view_lab})
     st.radio("View", list(VIEWS), key="view", horizontal=True, label_visibility="collapsed")
 else:
     st.session_state["view"] = NAV[0]
