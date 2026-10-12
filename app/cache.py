@@ -47,6 +47,48 @@ def _get_client():
         return None
 
 
+def _bump(stat: str) -> None:
+    """Best-effort counter increment for the observability dashboard."""
+    client = _redis_client
+    if client is None:
+        return
+    try:
+        client.hincrby("stats:cache", stat, 1)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def retry_connection() -> None:
+    """Forget a previous 'Redis unavailable' verdict so the next call retries."""
+    global _redis_unavailable
+    _redis_unavailable = False
+
+
+def get_stats() -> dict:
+    """Cache / rate-limiter counters and entry counts for the dashboard."""
+    client = _get_client()
+    if client is None:
+        return {"available": False}
+    try:
+        raw = client.hgetall("stats:cache")
+        hits, misses = int(raw.get("hit", 0)), int(raw.get("miss", 0))
+        total = hits + misses
+        return {
+            "available": True,
+            "hits": hits,
+            "misses": misses,
+            "stores": int(raw.get("store", 0)),
+            "rate_limited": int(raw.get("rate_limited", 0)),
+            "hit_rate": (hits / total) if total else None,
+            "entries": {
+                ns: client.llen(f"semantic_cache:{ns}")
+                for ns in ("web_search", "stock_price")
+            },
+        }
+    except Exception:  # noqa: BLE001
+        return {"available": False}
+
+
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     vec_a, vec_b = np.array(a), np.array(b)
     denom = np.linalg.norm(vec_a) * np.linalg.norm(vec_b)
@@ -75,6 +117,7 @@ def semantic_cache_lookup(
         return None
 
     if not raw_entries:
+        _bump("miss")
         return None
 
     query_embedding = embed_fn(query)
@@ -90,7 +133,9 @@ def semantic_cache_lookup(
 
     if best_score >= config.SEMANTIC_CACHE_THRESHOLD:
         logger.info("Semantic cache hit for '%s' (score=%.3f)", namespace, best_score)
+        _bump("hit")
         return best_result
+    _bump("miss")
     return None
 
 
@@ -114,6 +159,7 @@ def semantic_cache_store(
         pipe.ltrim(key, 0, config.SEMANTIC_CACHE_MAX_ENTRIES - 1)
         pipe.expire(key, config.SEMANTIC_CACHE_TTL_SECONDS)
         pipe.execute()
+        _bump("store")
     except Exception:
         logger.exception("Redis write failed for %s; skipping cache store.", key)
 
@@ -141,6 +187,8 @@ def check_rate_limit(
         count = client.incr(key)
         if count == 1:
             client.expire(key, window_seconds)
+        if count > limit:
+            _bump("rate_limited")
         return count <= limit
     except Exception:
         logger.exception("Redis rate-limit check failed for %s; allowing call.", key)

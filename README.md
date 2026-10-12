@@ -144,3 +144,18 @@ regression against a fixed golden dataset) for a real evaluation gate.
 - The project was two flat scripts; it's now a proper `app/` package with
   single-responsibility modules (config, tracing, llm, cache, retrieval,
   state, checkpointer, graph, tools/) instead of one large file.
+
+## Frontend
+
+`streamlit run frontend_streamlit.py` (theme in `.streamlit/config.toml` and `ui_theme.py`).
+
+| View | What it shows |
+|---|---|
+| Chat | Streaming answers, per-message model badge (dynamic routing), tool chips, numbered source citations, agent trace, groundedness / self-correction badges, Redis cache-hit and rate-limit badges, human-in-the-loop stock approval card |
+| Observability | PostgreSQL / Redis / LangSmith / MCP health, agent graph, retrieval pipeline, tool registry, guardrail settings, per-turn latency and routing telemetry |
+| DeepEval | Auto-generate or edit Q&A pairs, then score Faithfulness, Answer Relevancy, Contextual Precision and Recall on the PDFs indexed in the chat |
+| Retrieval Lab | BM25 vs FAISS vs hybrid vs cross-encoder-reranked results for the same query |
+
+Multiple PDFs can be uploaded per chat; they share one hybrid index and answers cite `[n]` with file and page.
+Model routing (sidebar): Auto escalates long / analytical / multi-tool / self-correction turns to `STRONG_MODEL_NAME`.
+Note: document indexes are held in process memory, so re-upload PDFs after restarting the app.

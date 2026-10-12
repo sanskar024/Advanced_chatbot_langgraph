@@ -1,0 +1,5 @@
+.env
+chatbot.db*
+chat.db
+.kilo/
+__pycache__/

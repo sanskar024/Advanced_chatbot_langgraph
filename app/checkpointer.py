@@ -19,7 +19,8 @@ checkpointer.setup()
 
 
 def retrieve_all_threads() -> list[str]:
-    all_threads = set()
+    """Unique thread ids, most recently active first."""
+    seen: dict[str, None] = {}
     for checkpoint in checkpointer.list(None):
-        all_threads.add(checkpoint.config["configurable"]["thread_id"])
-    return list(all_threads)
+        seen.setdefault(checkpoint.config["configurable"]["thread_id"], None)
+    return list(seen)

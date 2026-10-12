@@ -9,11 +9,22 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 from . import config
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
+fast_llm = ChatGoogleGenerativeAI(
+    model=config.FAST_MODEL_NAME,
     google_api_key=config.API_KEY,
     temperature=0.2,
 )
+
+# Used for complex prompts, multi-tool runs and self-correction passes
+# (see app/routing.py).
+strong_llm = ChatGoogleGenerativeAI(
+    model=config.STRONG_MODEL_NAME,
+    google_api_key=config.API_KEY,
+    temperature=0.2,
+)
+
+# Default model for utility calls (grounding check, eval judge, etc.).
+llm = fast_llm
 
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"

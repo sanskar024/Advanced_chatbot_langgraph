@@ -40,3 +40,10 @@ LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT") or os.getenv("LANGCHAIN_END
 
 # --- Self-correction / reflection loop ---
 MAX_SELF_CORRECTIONS = int(os.getenv("MAX_SELF_CORRECTIONS", "1"))
+
+# --- Dynamic model routing ---
+# Simple prompts go to the fast model; long / analytical prompts, multi-tool
+# runs and self-correction passes are escalated to the strong model.
+FAST_MODEL_NAME = os.getenv("FAST_MODEL_NAME", "gemini-2.5-flash")
+STRONG_MODEL_NAME = os.getenv("STRONG_MODEL_NAME", "gemini-2.5-pro")
+HEAVY_TASK_CHAR_THRESHOLD = int(os.getenv("HEAVY_TASK_CHAR_THRESHOLD", "600"))
