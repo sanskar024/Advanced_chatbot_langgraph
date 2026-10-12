@@ -841,7 +841,10 @@ def view_lab() -> None:
 # ============================================================================
 # Router
 # ============================================================================
-VIEWS = {NAV[0]: view_chat}
+VIEWS = {
+    NAV[0]: view_chat,
+    NAV[2]: view_eval
+}
 if SHOW_EXTRA_VIEWS:
     VIEWS.update({NAV[1]: view_observability, NAV[2]: view_eval, NAV[3]: view_lab})
     st.radio("View", list(VIEWS), key="view", horizontal=True, label_visibility="collapsed")
