@@ -1,13 +1,16 @@
 """
-In-app DeepEval runner for the Evaluation tab. Uses the *same* indexed
-documents, retriever and LLM the chatbot uses, so the scores describe the
-real pipeline. (evaluate_rag.py is the equivalent command-line version.)
+In-app DeepEval runner for the Evaluation tab. Uses the same indexed
+documents and retriever as the chatbot. Throttled + retried to survive
+Gemini free-tier rate limits.
 """
 import json
+import os
 import re
+import time
 from typing import Callable, List, Optional
 
-from .llm import llm
+from langchain_google_genai import ChatGoogleGenerativeAI
+
 from .retrieval import thread_chunks
 from .tools.rag import rag_tool
 from .utils import message_text
@@ -18,6 +21,32 @@ METRIC_NAMES = [
     "Contextual Precision",
     "Contextual Recall",
 ]
+
+llm = ChatGoogleGenerativeAI(
+    model=os.getenv("FAST_MODEL_NAME", "gemini-2.5-flash"),
+    google_api_key=os.getenv("API_KEY"),
+    temperature=0.3,
+    max_retries=2,
+)
+
+CALL_GAP_S = 6  # ~10 requests/minute on the free tier
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    s = f"{type(exc).__name__} {exc}".lower()
+    return "429" in s or "ratelimit" in s or "resource_exhausted" in s or "quota" in s
+
+
+def invoke_with_backoff(prompt: str, attempts: int = 4):
+    delay = 15
+    for i in range(attempts):
+        try:
+            return llm.invoke(prompt)
+        except Exception as exc:  # noqa: BLE001
+            if not _is_rate_limit(exc) or i == attempts - 1:
+                raise
+            time.sleep(delay)
+            delay *= 2
 
 
 def generate_qa_pairs(thread_id: str, n: int = 4) -> List[dict]:
@@ -37,17 +66,17 @@ def generate_qa_pairs(thread_id: str, n: int = 4) -> List[dict]:
             'Reply with JSON only: {"question": "...", "answer": "..."}\n\n'
             f"Passage:\n{chunk.page_content[:1500]}"
         )
-        raw = message_text(llm.invoke(prompt).content)
+        raw = message_text(invoke_with_backoff(prompt).content)
         match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if not match:
-            continue
-        try:
-            data = json.loads(match.group(0))
-            pairs.append(
-                {"question": data["question"].strip(), "ground_truth": data["answer"].strip()}
-            )
-        except (ValueError, KeyError):
-            continue
+        if match:
+            try:
+                data = json.loads(match.group(0))
+                pairs.append(
+                    {"question": data["question"].strip(), "ground_truth": data["answer"].strip()}
+                )
+            except (ValueError, KeyError):
+                pass
+        time.sleep(CALL_GAP_S)
     return pairs
 
 
@@ -58,8 +87,7 @@ def run_deepeval(
     progress: Optional[Callable[[float, str], None]] = None,
 ) -> List[dict]:
     """Retrieve + answer each question, then score it with DeepEval's RAG
-    metrics. Precision/recall need a ground truth, so they're skipped for
-    rows where it's blank."""
+    metrics. Precision/recall are skipped for rows with no ground truth."""
     from deepeval.metrics import (
         AnswerRelevancyMetric,
         ContextualPrecisionMetric,
@@ -80,7 +108,7 @@ def run_deepeval(
         retrieval = rag_tool.invoke({"query": question, "thread_id": thread_id})
         context = retrieval.get("context", [])
         answer = message_text(
-            llm.invoke(
+            invoke_with_backoff(
                 "Answer the question using only the context below. If the answer "
                 "is not in the context, say you don't know.\n\n"
                 "Context:\n" + "\n\n".join(context) + f"\n\nQuestion: {question}"
@@ -98,7 +126,8 @@ def run_deepeval(
             ("Contextual Precision", ContextualPrecisionMetric, True),
             ("Contextual Recall", ContextualRecallMetric, True),
         ]
-        row = {"question": question, "ground_truth": truth, "answer": answer, "scores": {}, "reasons": {}}
+        row = {"question": question, "ground_truth": truth, "answer": answer,
+               "scores": {}, "reasons": {}}
         for name, cls, needs_truth in metrics:
             done += 1
             if progress:
@@ -106,12 +135,19 @@ def run_deepeval(
             if needs_truth and not truth:
                 row["scores"][name], row["reasons"][name] = None, "No ground truth given"
                 continue
-            try:
-                metric = cls(model=judge, threshold=threshold, include_reason=True)
-                metric.measure(case)
-                row["scores"][name] = float(metric.score)
-                row["reasons"][name] = metric.reason or ""
-            except Exception as exc:  # noqa: BLE001 - keep going on a failed metric
-                row["scores"][name], row["reasons"][name] = None, f"Error: {str(exc)[:200]}"
+            for attempt in range(3):
+                try:
+                    metric = cls(model=judge, threshold=threshold, include_reason=True)
+                    metric.measure(case)
+                    row["scores"][name] = float(metric.score)
+                    row["reasons"][name] = metric.reason or ""
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    if _is_rate_limit(exc) and attempt < 2:
+                        time.sleep(20 * (attempt + 1))
+                        continue
+                    row["scores"][name], row["reasons"][name] = None, f"Error: {str(exc)[:200]}"
+                    break
+            time.sleep(CALL_GAP_S)
         rows.append(row)
     return rows
