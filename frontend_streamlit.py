@@ -843,12 +843,10 @@ def view_lab() -> None:
 # ============================================================================
 VIEWS = {
     NAV[0]: view_chat,
-    NAV[2]: view_eval
+    NAV[2]: view_eval,
 }
 if SHOW_EXTRA_VIEWS:
     VIEWS.update({NAV[1]: view_observability, NAV[3]: view_lab})
-    st.radio("View", list(VIEWS), key="view", horizontal=True, label_visibility="collapsed")
-else:
-    st.session_state["view"] = NAV[0]
 
+st.radio("View", list(VIEWS), key="view", horizontal=True, label_visibility="collapsed")
 VIEWS[st.session_state["view"]]()
